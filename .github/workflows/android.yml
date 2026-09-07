@@ -28,11 +28,13 @@ jobs:
       with:
         gradle-version: 8.7
 
-    - name: Fix AndroidX and Jetifier Settings
+    - name: Fix AndroidX, Jetifier and Java Version
       run: |
-        # gradle.properties फाईलमध्ये AndroidX सुरू करण्याची सेटिंग जोडून एरर फिक्स करणे
+        # AndroidX ऑन करणे
         echo "android.useAndroidX=true" >> gradle.properties
         echo "android.enableJetifier=true" >> gradle.properties
+        # जावा व्हर्जन मिसमॅच फिक्स करण्यासाठी ग्लोबल सेटिंग जोडणे
+        echo "org.gradle.java.home=${JAVA_HOME}" >> gradle.properties
 
     - name: Grant execute permission for gradlew
       run: |
@@ -40,12 +42,13 @@ jobs:
           chmod +x gradlew
         fi
 
-    - name: Build with Gradle
+    - name: Build with Gradle (Force JVM 17)
       run: |
+        # -Porg.gradle.java.home द्वारे जावा १७ सक्तीने लागू करणे
         if [ -f gradlew ]; then
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleDebug -Pandroid.injected.kotlin.zapt.jvm.target=17 -Porg.gradle.java.home=$JAVA_HOME --no-daemon
         else
-          gradle assembleDebug --no-daemon
+          gradle assembleDebug -Pandroid.injected.kotlin.zapt.jvm.target=17 -Porg.gradle.java.home=$JAVA_HOME --no-daemon
         fi
 
     - name: Upload APK
