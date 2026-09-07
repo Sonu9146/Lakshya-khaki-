@@ -18,44 +18,45 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Unzip Source Code
+    - name: Unzip Source Code Flat
       run: |
-        unzip -o *.zip -d .
-        rm -f *.zip
+        # Extract files without creating or keeping extra parent subdirectories
+        unzip -o *.zip -d temp_extract
+        mv temp_extract/*/* . 2>/dev/null || mv temp_extract/* . 2>/dev/null || true
+        rm -rf temp_extract *.zip
 
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v4
       with:
         gradle-version: 8.7
 
-    - name: Fix AndroidX and JVM Target in Build Scripts
+    - name: Fix AndroidX and JVM Target Settings
       run: |
-        # 1. Enable AndroidX Support across the project
-        find . -name "gradle.properties" -exec sh -c 'echo "android.useAndroidX=true" >> "$1"' _ {} \;
-        find . -name "gradle.properties" -exec sh -c 'echo "android.enableJetifier=true" >> "$1"' _ {} \;
-        
-        # 2. Force JVM 17 in all build.gradle.kts files found in subdirectories
-        find . -name "build.gradle.kts" -exec sed -i 's/JavaVersion.VERSION_1_8/JavaVersion.VERSION_17/g' {} \;
-        find . -name "build.gradle.kts" -exec sed -i 's/"1.8"/"17"/g' {} \;
-        find . -name "build.gradle.kts" -exec sed -i 's/jvmTarget = "1.8"/jvmTarget = "17"/g' {} \;
+        # 1. Enable AndroidX Support properly at the root level
+        echo "android.useAndroidX=true" >> gradle.properties
+        echo "android.enableJetifier=true" >> gradle.properties
+        echo "org.gradle.java.home=${JAVA_HOME}" >> gradle.properties
+
+        # 2. Force JVM 17 inside the build configuration
+        GRADLE_FILE="app/build.gradle.kts"
+        if [ -f "$GRADLE_FILE" ]; then
+          sed -i 's/JavaVersion.VERSION_1_8/JavaVersion.VERSION_17/g' "$GRADLE_FILE"
+          sed -i 's/"1.8"/"17"/g' "$GRADLE_FILE"
+          sed -i 's/jvmTarget = "1.8"/jvmTarget = "17"/g' "$GRADLE_FILE"
+        fi
 
     - name: Grant execute permission for gradlew
       run: |
-        find . -name "gradlew" -exec chmod +x {} \;
+        if [ -f gradlew ]; then
+          chmod +x gradlew
+        fi
 
     - name: Build with Gradle
       run: |
-        # Find gradlew wherever it is and run it
-        GRADLEW_PATH=$(find . -name "gradlew" | head -n 1)
-        if [ -f "$GRADLEW_PATH" ]; then
-          cd "$(dirname "$GRADLEW_PATH")"
-          ./gradlew assembleDebug --no-daemon
-        else
-          gradle assembleDebug --no-daemon
-        fi
+        ./gradlew assembleDebug --no-daemon
 
-    - name: Upload APK
+    - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: my-app-debug
-        path: "**/*.apk"
+        path: "**/build/outputs/apk/debug/*.apk"
