@@ -23,21 +23,28 @@ jobs:
         unzip -o *.zip -d .
         rm -f *.zip
 
-    - name: Fix and Force Latest Gradle Version
-      run: |
-        # सर्व जुने रॅपर्स काढून नवीन Kotlin DSL साठी Gradle व्हर्जन सेट करणे
-        rm -f gradlew gradlew.bat
-        rm -rf gradle/wrapper
-        gradle wrapper --gradle-version 8.7 --distribution-type all
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v4
+      with:
+        gradle-version: 8.7
 
     - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
+      run: |
+        if [ -f gradlew ]; then
+          chmod +x gradlew
+        fi
 
     - name: Build with Gradle
-      run: ./gradlew assembleDebug --no-daemon
+      run: |
+        if [ -f gradlew ]; then
+          ./gradlew assembleDebug --no-daemon
+        else
+          gradle assembleDebug --no-daemon
+        fi
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
         name: my-app-debug
-        path: app/build/outputs/apk/debug/app-debug.apk
+        path: |
+          **/build/outputs/apk/debug/*.apk
