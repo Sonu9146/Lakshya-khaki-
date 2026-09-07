@@ -30,34 +30,32 @@ jobs:
 
     - name: Fix AndroidX and JVM Target in Build Scripts
       run: |
-        # 1. Enable AndroidX Support
-        echo "android.useAndroidX=true" >> gradle.properties
-        echo "android.enableJetifier=true" >> gradle.properties
-        echo "org.gradle.java.home=${JAVA_HOME}" >> gradle.properties
-
-        # 2. Automatically replace Java 1.8 with Java 17 inside app/build.gradle.kts
-        GRADLE_FILE="app/build.gradle.kts"
-        if [ -f "$GRADLE_FILE" ]; then
-          echo "Modifying $GRADLE_FILE to force JVM 17..."
-          sed -i 's/JavaVersion.VERSION_1_8/JavaVersion.VERSION_17/g' "$GRADLE_FILE"
-          sed -i 's/"1.8"/"17"/g' "$GRADLE_FILE"
-          sed -i 's/jvmTarget = "1.8"/jvmTarget = "17"/g' "$GRADLE_FILE"
-        fi
+        # 1. Enable AndroidX Support across the project
+        find . -name "gradle.properties" -exec sh -c 'echo "android.useAndroidX=true" >> "$1"' _ {} \;
+        find . -name "gradle.properties" -exec sh -c 'echo "android.enableJetifier=true" >> "$1"' _ {} \;
+        
+        # 2. Force JVM 17 in all build.gradle.kts files found in subdirectories
+        find . -name "build.gradle.kts" -exec sed -i 's/JavaVersion.VERSION_1_8/JavaVersion.VERSION_17/g' {} \;
+        find . -name "build.gradle.kts" -exec sed -i 's/"1.8"/"17"/g' {} \;
+        find . -name "build.gradle.kts" -exec sed -i 's/jvmTarget = "1.8"/jvmTarget = "17"/g' {} \;
 
     - name: Grant execute permission for gradlew
       run: |
-        if [ -f gradlew ]; then
-          chmod +x gradlew
-        fi
+        find . -name "gradlew" -exec chmod +x {} \;
 
     - name: Build with Gradle
       run: |
-        if [ -f gradlew ]; then
+        # Find gradlew wherever it is and run it
+        GRADLEW_PATH=$(find . -name "gradlew" | head -n 1)
+        if [ -f "$GRADLEW_PATH" ]; then
+          cd "$(dirname "$GRADLEW_PATH")"
           ./gradlew assembleDebug --no-daemon
+        else
+          gradle assembleDebug --no-daemon
         fi
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
         name: my-app-debug
-        path: "**/outputs/apk/debug/*.apk"
+        path: "**/*.apk"
