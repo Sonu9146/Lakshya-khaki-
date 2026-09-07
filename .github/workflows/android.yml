@@ -28,13 +28,21 @@ jobs:
       with:
         gradle-version: 8.7
 
-    - name: Fix AndroidX, Jetifier and Java Version
+    - name: Fix AndroidX and JVM Target in Build Scripts
       run: |
-        # AndroidX ऑन करणे
+        # 1. Enable AndroidX Support
         echo "android.useAndroidX=true" >> gradle.properties
         echo "android.enableJetifier=true" >> gradle.properties
-        # जावा व्हर्जन मिसमॅच फिक्स करण्यासाठी ग्लोबल सेटिंग जोडणे
         echo "org.gradle.java.home=${JAVA_HOME}" >> gradle.properties
+
+        # 2. Automatically replace Java 1.8 with Java 17 inside app/build.gradle.kts
+        GRADLE_FILE="app/build.gradle.kts"
+        if [ -f "$GRADLE_FILE" ]; then
+          echo "Modifying $GRADLE_FILE to force JVM 17..."
+          sed -i 's/JavaVersion.VERSION_1_8/JavaVersion.VERSION_17/g' "$GRADLE_FILE"
+          sed -i 's/"1.8"/"17"/g' "$GRADLE_FILE"
+          sed -i 's/jvmTarget = "1.8"/jvmTarget = "17"/g' "$GRADLE_FILE"
+        fi
 
     - name: Grant execute permission for gradlew
       run: |
@@ -42,13 +50,10 @@ jobs:
           chmod +x gradlew
         fi
 
-    - name: Build with Gradle (Force JVM 17)
+    - name: Build with Gradle
       run: |
-        # -Porg.gradle.java.home द्वारे जावा १७ सक्तीने लागू करणे
         if [ -f gradlew ]; then
-          ./gradlew assembleDebug -Pandroid.injected.kotlin.zapt.jvm.target=17 -Porg.gradle.java.home=$JAVA_HOME --no-daemon
-        else
-          gradle assembleDebug -Pandroid.injected.kotlin.zapt.jvm.target=17 -Porg.gradle.java.home=$JAVA_HOME --no-daemon
+          ./gradlew assembleDebug --no-daemon
         fi
 
     - name: Upload APK
