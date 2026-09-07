@@ -23,8 +23,9 @@ jobs:
         unzip -o *.zip -d .
         rm -f *.zip
 
-    - name: Fix and Force Gradle Version
+    - name: Fix and Force Latest Gradle Version
       run: |
+        # सर्व जुने रॅपर्स काढून नवीन Kotlin DSL साठी Gradle व्हर्जन सेट करणे
         rm -f gradlew gradlew.bat
         rm -rf gradle/wrapper
         gradle wrapper --gradle-version 8.7 --distribution-type all
