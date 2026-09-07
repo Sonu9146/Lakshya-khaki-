@@ -10,53 +10,42 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    - name: set up JDK 17
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
 
-    - name: Unzip Source Code Flat
-      run: |
-        # Extract files without creating or keeping extra parent subdirectories
-        unzip -o *.zip -d temp_extract
-        mv temp_extract/*/* . 2>/dev/null || mv temp_extract/* . 2>/dev/null || true
-        rm -rf temp_extract *.zip
+      - name: Extract Project ZIP
+        run: |
+          unzip LakshyaKhaki-Native-v12.zip -d extracted_project
+          # find gradlew in extracted files and move everything to root if inside a subfolder
+          if [ -d "extracted_project" ]; then
+            cp -r extracted_project/* . || true
+            cp -r extracted_project/.* . || true
+          fi
 
-    - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@v4
-      with:
-        gradle-version: 8.7
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
 
-    - name: Fix AndroidX and JVM Target Settings
-      run: |
-        # 1. Enable AndroidX Support properly at the root level
-        echo "android.useAndroidX=true" >> gradle.properties
-        echo "android.enableJetifier=true" >> gradle.properties
-        echo "org.gradle.java.home=${JAVA_HOME}" >> gradle.properties
+      - name: Grant execute permission for gradlew
+        run: |
+          if [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
+          else
+            echo "gradlew still not found!"
+            ls -la
+            exit 1
+          fi
 
-        # 2. Force JVM 17 inside the build configuration
-        GRADLE_FILE="app/build.gradle.kts"
-        if [ -f "$GRADLE_FILE" ]; then
-          sed -i 's/JavaVersion.VERSION_1_8/JavaVersion.VERSION_17/g' "$GRADLE_FILE"
-          sed -i 's/"1.8"/"17"/g' "$GRADLE_FILE"
-          sed -i 's/jvmTarget = "1.8"/jvmTarget = "17"/g' "$GRADLE_FILE"
-        fi
+      - name: Build with Gradle
+        run: ./gradlew assembleDebug --no-daemon
 
-    - name: Grant execute permission for gradlew
-      run: |
-        if [ -f gradlew ]; then
-          chmod +x gradlew
-        fi
-
-    - name: Build with Gradle
-      run: |
-        ./gradlew assembleDebug --no-daemon
-
-    - name: Upload APK Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: my-app-debug
-        path: "**/build/outputs/apk/debug/*.apk"
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: my-app-debug
+          path: app/build/outputs/apk/debug/*.apk
